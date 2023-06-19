@@ -417,10 +417,10 @@ class VisionTransformerDiffPruning(nn.Module):
         self.head = nn.Linear(self.embed_dim, num_classes) if num_classes > 0 else nn.Identity()
 
     def forward(self, x):
-        B = x.shape[0]
         x = self.patch_embed(x)
-
-        cls_tokens = self.cls_token.expand(B, -1, -1)  # stole cls_tokens impl from Phil Wang, thanks
+        x = x.flatten(2).transpose(1, 2)
+        B = x.shape[0]
+        cls_tokens = self.cls_token.expand(B, -1, -1)
         x = torch.cat((cls_tokens, x), dim=1)
         x = x + self.pos_embed
         x = self.pos_drop(x)

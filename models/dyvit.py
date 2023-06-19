@@ -322,7 +322,7 @@ class VisionTransformerDiffPruning(nn.Module):
     def __init__(self, img_size=224, patch_size=16, in_chans=3, num_classes=1000, embed_dim=768, depth=12,
                  num_heads=12, mlp_ratio=4., qkv_bias=True, qk_scale=None, representation_size=None,
                  drop_rate=0., attn_drop_rate=0., drop_path_rate=0., hybrid_backbone=None, norm_layer=None, 
-                 pruning_loc=None, token_ratio=None, distill=False):
+                 pruning_loc=None, token_ratio=None, distill=False, viz=False):
         """
         Args:
             img_size (int, tuple): input image size
@@ -429,6 +429,8 @@ class VisionTransformerDiffPruning(nn.Module):
         init_n = 14 * 14
         prev_decision = torch.ones(B, init_n, 1, dtype=x.dtype, device=x.device)
         policy = torch.ones(B, init_n + 1, 1, dtype=x.dtype, device=x.device)
+        if self.viz_mode:
+            decisions = [[] for _ in self.pruning_loc]
         for i, blk in enumerate(self.blocks):
             if i in self.pruning_loc:
                 spatial_x = x[:, 1:]
@@ -444,6 +446,8 @@ class VisionTransformerDiffPruning(nn.Module):
                     score = pred_score[:,:,0]
                     num_keep_node = int(init_n * self.token_ratio[p_count])
                     keep_policy = torch.argsort(score, dim=1, descending=True)[:, :num_keep_node]
+                    if self.viz_mode:
+                        decisions[p_count].append(keep_policy)
                     cls_policy = torch.zeros(B, 1, dtype=keep_policy.dtype, device=keep_policy.device)
                     now_policy = torch.cat([cls_policy, keep_policy + 1], dim=1)
                     x = batch_index_select(x, now_policy)
@@ -467,7 +471,10 @@ class VisionTransformerDiffPruning(nn.Module):
             else:
                 return x, out_pred_prob
         else:
-            return x
+            if self.viz_mode:
+                return x, decisions
+            else:
+                return x
 
 class VisionTransformerTeacher(nn.Module):
     """ Vision Transformer
